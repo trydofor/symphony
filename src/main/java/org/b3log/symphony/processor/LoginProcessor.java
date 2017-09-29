@@ -42,6 +42,7 @@ import org.b3log.latke.util.Strings;
 import org.b3log.symphony.model.*;
 import org.b3log.symphony.processor.advice.CSRFToken;
 import org.b3log.symphony.processor.advice.LoginCheck;
+import org.b3log.symphony.processor.advice.PermissionCheck;
 import org.b3log.symphony.processor.advice.PermissionGrant;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchEndAdvice;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchStartAdvice;
@@ -349,7 +350,7 @@ public class LoginProcessor {
      * @throws Exception exception
      */
     @RequestProcessing(value = "/forget-pwd", method = HTTPRequestMethod.POST)
-    @Before(adviceClass = UserForgetPwdValidation.class)
+    @Before(adviceClass = {UserForgetPwdValidation.class, PermissionCheck.class})
     public void forgetPwd(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
             throws Exception {
         context.renderJSON();
@@ -430,6 +431,7 @@ public class LoginProcessor {
      * @throws IOException      io exception
      */
     @RequestProcessing(value = "/reset-pwd", method = HTTPRequestMethod.POST)
+    @Before(adviceClass = PermissionCheck.class)
     public void resetPwd(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
             throws ServletException, IOException {
         context.renderJSON();
@@ -550,7 +552,7 @@ public class LoginProcessor {
      * @throws IOException      io exception
      */
     @RequestProcessing(value = "/register", method = HTTPRequestMethod.POST)
-    @Before(adviceClass = UserRegisterValidation.class)
+    @Before(adviceClass = {UserRegisterValidation.class, PermissionCheck.class})
     public void register(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
             throws ServletException, IOException {
         context.renderJSON();
@@ -614,7 +616,7 @@ public class LoginProcessor {
      * @throws IOException      io exception
      */
     @RequestProcessing(value = "/register2", method = HTTPRequestMethod.POST)
-    @Before(adviceClass = UserRegister2Validation.class)
+    @Before(adviceClass = {UserRegister2Validation.class, PermissionCheck.class})
     public void register2(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
             throws ServletException, IOException {
         context.renderJSON();
