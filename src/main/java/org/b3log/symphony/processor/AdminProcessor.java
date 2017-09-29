@@ -67,6 +67,7 @@ import java.util.*;
  * <li>Shows a user (/admin/user/{userId}), GET</li>
  * <li>Shows add user (/admin/add-user), GET</li>
  * <li>Adds a user (/admin/add-user), POST</li>
+ * <li>Modify user's password (/admin/mod-user), POST</li>
  * <li>Updates a user (/admin/user/{userId}), POST</li>
  * <li>Updates a user's email (/admin/user/{userId}/email), POST</li>
  * <li>Updates a user's username (/admin/user/{userId}/username), POST</li>
@@ -1249,6 +1250,49 @@ public class AdminProcessor {
             user.put(UserExt.USER_LANGUAGE, admin.optString(UserExt.USER_LANGUAGE));
 
             userId = userMgmtService.addUser(user);
+        } catch (final ServiceException e) {
+            final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
+            context.setRenderer(renderer);
+            renderer.setTemplateName("admin/error.ftl");
+            final Map<String, Object> dataModel = renderer.getDataModel();
+
+            dataModel.put(Keys.MSG, e.getMessage());
+            dataModelService.fillHeaderAndFooter(request, response, dataModel);
+
+            return;
+        }
+
+        response.sendRedirect(Latkes.getServePath() + "/admin/user/" + userId);
+    }
+
+    /**
+     * Modida user.
+     *
+     * @param context  the specified context
+     * @param request  the specified request
+     * @param response the specified response
+     * @throws Exception exception
+     */
+    @RequestProcessing(value = "/admin/mod-user", method = HTTPRequestMethod.POST)
+    @Before(adviceClass = {StopwatchStartAdvice.class, PermissionCheck.class})
+    @After(adviceClass = {PermissionGrant.class, StopwatchEndAdvice.class})
+    public void modUser(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
+            throws Exception {
+        final String userName = request.getParameter(User.USER_NAME);
+        final String email = request.getParameter(User.USER_EMAIL);
+        final String password = request.getParameter(User.USER_PASSWORD);
+
+        String userId;
+        try {
+            JSONObject user = userQueryService.getUserByName(userName);
+            userId = user.optString(Keys.OBJECT_ID);
+
+            user.put(User.USER_EMAIL, email);
+            user.put(User.USER_PASSWORD, MD5.hash(password));
+            user.remove(UserExt.USER_T_POINT_HEX);
+            user.remove(UserExt.USER_T_POINT_CC);
+
+            userMgmtService.updateUser(userId, user);
         } catch (final ServiceException e) {
             final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
             context.setRenderer(renderer);
