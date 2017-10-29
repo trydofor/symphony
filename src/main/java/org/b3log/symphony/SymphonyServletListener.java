@@ -43,6 +43,7 @@ import org.b3log.symphony.repository.UserRepository;
 import org.b3log.symphony.service.InitMgmtService;
 import org.b3log.symphony.service.UserMgmtService;
 import org.b3log.symphony.service.UserQueryService;
+import org.b3log.symphony.util.CookiesUtil;
 import org.b3log.symphony.util.Crypts;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
@@ -68,19 +69,19 @@ public final class SymphonyServletListener extends AbstractServletListener {
     /**
      * Symphony version.
      */
-    public static final String VERSION = "2.1.0";
+    public static final String  VERSION                  = "2.1.0";
     /**
      * JSONO print indent factor.
      */
-    public static final int JSON_PRINT_INDENT_FACTOR = 4;
+    public static final int     JSON_PRINT_INDENT_FACTOR = 4;
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(SymphonyServletListener.class);
+    private static final Logger LOGGER                   = Logger.getLogger(SymphonyServletListener.class);
     /**
      * Bean manager.
      */
-    private LatkeBeanManager beanManager;
+    private LatkeBeanManager    beanManager;
 
     @Override
     public void contextInitialized(final ServletContextEvent servletContextEvent) {
@@ -263,7 +264,6 @@ public final class SymphonyServletListener extends AbstractServletListener {
         }
     }
 
-
     /**
      * Resolve skin (template) for the specified HTTP servlet request.
      *
@@ -296,30 +296,24 @@ public final class SymphonyServletListener extends AbstractServletListener {
                 }
 
                 try {
-                    for (final Cookie cookie : cookies) {
-                        if (!Sessions.COOKIE_NAME.equals(cookie.getName())) {
-                            continue;
-                        }
+                    // 获得最后一个Cookie
+                    Cookie cookie = CookiesUtil.lastOne(Sessions.COOKIE_NAME, cookies);
 
-                        final String value = Crypts.decryptByAES(cookie.getValue(), Symphonys.get("cookie.secret"));
-                        if (StringUtils.isBlank(value)) {
-                            break;
-                        }
+                    if (cookie == null) return;
 
-                        final JSONObject cookieJSONObject = new JSONObject(value);
-
-                        final String userId = cookieJSONObject.optString(Keys.OBJECT_ID);
-                        if (Strings.isEmptyOrNull(userId)) {
-                            break;
-                        }
-
-                        user = userRepository.get(userId);
-                        if (null == user) {
-                            return;
-                        } else {
-                            break;
-                        }
+                    final String value = Crypts.decryptByAES(cookie.getValue(), Symphonys.get("cookie.secret"));
+                    if (StringUtils.isBlank(value)) {
+                        return;
                     }
+
+                    final JSONObject cookieJSONObject = new JSONObject(value);
+
+                    final String userId = cookieJSONObject.optString(Keys.OBJECT_ID);
+                    if (Strings.isEmptyOrNull(userId)) {
+                        return;
+                    }
+
+                    user = userRepository.get(userId);
                 } catch (final Exception e) {
                     LOGGER.log(Level.ERROR, "Read cookie failed", e);
                 }

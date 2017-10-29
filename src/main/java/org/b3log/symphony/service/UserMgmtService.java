@@ -39,10 +39,7 @@ import org.b3log.latke.util.Requests;
 import org.b3log.latke.util.Strings;
 import org.b3log.symphony.model.*;
 import org.b3log.symphony.repository.*;
-import org.b3log.symphony.util.Crypts;
-import org.b3log.symphony.util.Geos;
-import org.b3log.symphony.util.Sessions;
-import org.b3log.symphony.util.Symphonys;
+import org.b3log.symphony.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -146,49 +143,49 @@ public class UserMgmtService {
         }
 
         try {
-            for (final Cookie cookie : cookies) {
-                if (!Sessions.COOKIE_NAME.equals(cookie.getName())) {
-                    continue;
-                }
+            // 获得最后一个Cookie
+            Cookie cookie = CookiesUtil.lastOne(Sessions.COOKIE_NAME,cookies);
 
-                final String value = Crypts.decryptByAES(cookie.getValue(), Symphonys.get("cookie.secret"));
-                final JSONObject cookieJSONObject = new JSONObject(value);
+            if(cookie == null) return false;
 
-                final String userId = cookieJSONObject.optString(Keys.OBJECT_ID);
-                if (Strings.isEmptyOrNull(userId)) {
-                    break;
-                }
+            final String value = Crypts.decryptByAES(cookie.getValue(), Symphonys.get("cookie.secret"));
+            final JSONObject cookieJSONObject = new JSONObject(value);
 
-                final JSONObject user = userRepository.get(userId);
-                if (null == user) {
-                    break;
-                }
-
-                final String ip = Requests.getRemoteAddr(request);
-
-                if (UserExt.USER_STATUS_C_INVALID == user.optInt(UserExt.USER_STATUS)
-                        || UserExt.USER_STATUS_C_INVALID_LOGIN == user.optInt(UserExt.USER_STATUS)) {
-                    Sessions.logout(request, response);
-
-                    updateOnlineStatus(userId, ip, false);
-
-                    return false;
-                }
-
-                final String userPassword = user.optString(User.USER_PASSWORD);
-                final String token = cookieJSONObject.optString(Keys.TOKEN);
-                final String password = StringUtils.substringBeforeLast(token, ":");
-
-                if (userPassword.equals(password)) {
-                    Sessions.login(request, response, user, cookieJSONObject.optBoolean(Common.REMEMBER_LOGIN));
-
-                    updateOnlineStatus(userId, ip, true);
-
-                    LOGGER.log(Level.TRACE, "Logged in with cookie[userId={0}]", userId);
-
-                    return true;
-                }
+            final String userId = cookieJSONObject.optString(Keys.OBJECT_ID);
+            if (Strings.isEmptyOrNull(userId)) {
+                return false;
             }
+
+            final JSONObject user = userRepository.get(userId);
+            if (null == user) {
+                return false;
+            }
+
+            final String ip = Requests.getRemoteAddr(request);
+
+            if (UserExt.USER_STATUS_C_INVALID == user.optInt(UserExt.USER_STATUS)
+                    || UserExt.USER_STATUS_C_INVALID_LOGIN == user.optInt(UserExt.USER_STATUS)) {
+                Sessions.logout(request, response);
+
+                updateOnlineStatus(userId, ip, false);
+
+                return false;
+            }
+
+            final String userPassword = user.optString(User.USER_PASSWORD);
+            final String token = cookieJSONObject.optString(Keys.TOKEN);
+            final String password = StringUtils.substringBeforeLast(token, ":");
+
+            if (userPassword.equals(password)) {
+                Sessions.store(request, user, cookie.getValue());
+
+                updateOnlineStatus(userId, ip, true);
+
+                LOGGER.log(Level.TRACE, "Logged in with cookie[userId={0}]", userId);
+
+                return true;
+            }
+
         } catch (final Exception e) {
             LOGGER.log(Level.WARN, "Parses cookie failed, clears the cookie [name=" + Sessions.COOKIE_NAME + "]");
 

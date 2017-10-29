@@ -43,17 +43,17 @@ public final class Sessions {
     /**
      * Cookie name.
      */
-    public static final String COOKIE_NAME = "b3log-latke";
+    public static final String  COOKIE_NAME   = "b3log-latke";
 
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(Sessions.class);
+    private static final Logger LOGGER        = Logger.getLogger(Sessions.class);
 
     /**
      * Cookie expiry: one year.
      */
-    private static final int COOKIE_EXPIRY = 60 * 60 * 24 * 30;
+    private static final int    COOKIE_EXPIRY = 60 * 60 * 24 * 30;
 
     /**
      * Private default constructor.
@@ -97,7 +97,7 @@ public final class Sessions {
      * @return token, returns {@code null} if login failed
      */
     public static String login(final HttpServletRequest request, final HttpServletResponse response,
-                               final JSONObject user, final boolean rememberLogin) {
+            final JSONObject user, final boolean rememberLogin) {
         final HttpSession session = request.getSession(false);
 
         if (null == session) {
@@ -127,7 +127,7 @@ public final class Sessions {
             cookie.setSecure(StringUtils.equalsIgnoreCase(Latkes.getServerScheme(), "https"));
 
             response.addCookie(cookie);
-
+            session.setAttribute(COOKIE_NAME, ret);
             return ret;
         } catch (final Exception e) {
             LOGGER.log(Level.WARN, "Can not write cookie [oId=" + user.optString(Keys.OBJECT_ID)
@@ -135,6 +135,19 @@ public final class Sessions {
 
             return null;
         }
+    }
+
+    public static void store(final HttpServletRequest request, final JSONObject user, String cookie) {
+        final HttpSession session = request.getSession(false);
+
+        if (null == session) {
+            LOGGER.warn("The session is null");
+            return;
+        }
+
+        session.setAttribute(User.USER, user);
+        session.setAttribute(Common.CSRF_TOKEN, RandomStringUtils.randomAlphanumeric(12));
+        session.setAttribute(COOKIE_NAME, cookie);
     }
 
     /**
@@ -173,9 +186,33 @@ public final class Sessions {
         final HttpSession session = request.getSession(false);
 
         if (null != session) {
+
+            if (notSameUser(request, session)) {
+                session.setAttribute(User.USER, null);
+                return null;
+            }
+
             return (JSONObject) session.getAttribute(User.USER);
         }
 
         return null;
+    }
+
+    private static boolean notSameUser(HttpServletRequest request, HttpSession session) {
+        Cookie cookie = CookiesUtil.lastOne(COOKIE_NAME, request.getCookies());
+        if (cookie != null) {
+            // 有session，但cookie变化了，
+            String attribute = (String) session.getAttribute(COOKIE_NAME);
+            String value = cookie.getValue();
+            int len = 64;
+            if (attribute != null && value != null && attribute.length() > len && value.length() > len) {
+                String h = attribute.substring(0, len);
+                if (!value.startsWith(h)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
